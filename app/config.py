@@ -9,8 +9,8 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY", "")
-RAPIDAPI_HOST = "tennisapi1.p.rapidapi.com"
-BASE_URL = f"https://{RAPIDAPI_HOST}/api/tennis"
+RAPIDAPI_HOST = "tennis-api-atp-wta-itf.p.rapidapi.com"
+BASE_URL = f"https://{RAPIDAPI_HOST}/tennis/v2"
 
 # Cache TTLs in seconds
 CACHE_TTL = {

@@ -1,10 +1,12 @@
 """
-TennisApi1 client with aggressive caching to stay within free tier limits.
+TennisApi (tennis-api-atp-wta-itf) client with aggressive caching.
+Base URL: https://tennis-api-atp-wta-itf.p.rapidapi.com/tennis/v2/
 Every method checks cache first; only calls API on cache miss.
 """
 
 import httpx
 import logging
+from datetime import date as dt, datetime
 from typing import Optional
 
 from app.config import RAPIDAPI_KEY, RAPIDAPI_HOST, BASE_URL, CACHE_TTL
@@ -48,44 +50,55 @@ class TennisClient:
     # ---- Public methods ----
 
     async def get_rankings(self, type: str = "atp") -> dict:
-        """ATP or WTA rankings. type: 'atp' | 'wta'"""
-        key = cache.make_key("rankings", type=type)
-        return await self._cached(key, CACHE_TTL["rankings"], f"rankings/{type.upper()}")
+        """Singles rankings. type: 'atp' | 'wta' | 'itf'"""
+        t = type.lower()
+        key = cache.make_key("rankings", type=t)
+        return await self._cached(key, CACHE_TTL["rankings"], f"{t}/ranking/singles/")
 
-    async def get_results(self, date: str = None) -> dict:
-        """Recent match results. date: YYYY-MM-DD (defaults to today)."""
-        from datetime import date as dt
+    async def get_results(self, date: str = None, type: str = "atp") -> dict:
+        """Match fixtures/results for a date (YYYY-MM-DD). Defaults to today."""
         d = date or dt.today().isoformat()
-        key = cache.make_key("results", date=d)
-        return await self._cached(key, CACHE_TTL["results"], "results", {"date": d})
+        t = type.lower()
+        key = cache.make_key("results", date=d, type=t)
+        return await self._cached(key, CACHE_TTL["results"], f"{t}/fixtures/{d}")
 
-    async def get_calendar(self) -> dict:
-        """Upcoming tournaments calendar."""
-        key = cache.make_key("calendar")
-        return await self._cached(key, CACHE_TTL["calendar"], "competitions")
+    async def get_calendar(self, type: str = "atp") -> dict:
+        """Tournament calendar for the current year."""
+        t = type.lower()
+        year = datetime.now().year
+        key = cache.make_key("calendar", type=t, year=year)
+        return await self._cached(key, CACHE_TTL["calendar"], f"{t}/tournament/calendar/{year}")
 
-    async def get_h2h(self, player1_id: int, player2_id: int) -> dict:
-        """Head-to-head between two players."""
-        key = cache.make_key("h2h", p1=player1_id, p2=player2_id)
+    async def get_h2h(self, player1_id: int, player2_id: int, type: str = "atp") -> dict:
+        """Head-to-head info between two players."""
+        t = type.lower()
+        key = cache.make_key("h2h", p1=player1_id, p2=player2_id, type=t)
         return await self._cached(
-            key, CACHE_TTL["h2h"], "h2h",
-            {"playerId1": player1_id, "playerId2": player2_id}
+            key, CACHE_TTL["h2h"], f"{t}/h2h/info/{player1_id}/{player2_id}/"
         )
 
-    async def get_draws(self, tournament_id: int) -> dict:
-        """Tournament draw/bracket."""
-        key = cache.make_key("draws", tid=tournament_id)
-        return await self._cached(key, CACHE_TTL["draws"], f"competition/{tournament_id}/draw")
+    async def get_draws(self, tournament_id: int, type: str = "atp") -> dict:
+        """Tournament results/draw for a given tournament ID."""
+        t = type.lower()
+        key = cache.make_key("draws", tid=tournament_id, type=t)
+        return await self._cached(key, CACHE_TTL["draws"], f"{t}/tournament/results/{tournament_id}")
 
-    async def get_player(self, player_id: int) -> dict:
-        """Player profile and stats."""
-        key = cache.make_key("player", pid=player_id)
-        return await self._cached(key, CACHE_TTL["player"], f"player/{player_id}")
+    async def get_player(self, player_id: int, type: str = "atp") -> dict:
+        """Player profile."""
+        t = type.lower()
+        key = cache.make_key("player", pid=player_id, type=t)
+        return await self._cached(key, CACHE_TTL["player"], f"{t}/player/profile/{player_id}")
 
-    async def search_players(self, query: str) -> dict:
-        """Search for players or tournaments."""
-        key = cache.make_key("search", q=query.lower().strip())
-        return await self._cached(key, CACHE_TTL["search"], "search", {"query": query})
+    async def search_players(self, query: str, type: str = "atp") -> dict:
+        """Fetch all players for type and filter by name on the backend."""
+        t = type.lower()
+        key = cache.make_key("players_list", type=t)
+        data = await self._cached(key, CACHE_TTL["search"] * 24, f"{t}/player/")
+        # Filter by query string
+        players = data if isinstance(data, list) else data.get("data", [])
+        q = query.lower().strip()
+        filtered = [p for p in players if q in (p.get("name") or "").lower()]
+        return {"query": query, "results": filtered}
 
     async def close(self):
         if self._client and not self._client.is_closed:
