@@ -23,5 +23,7 @@ CACHE_TTL = {
     "search": 1 * 3600,        # 1h
 }
 
-PORT = 5004
-DB_PATH = Path(__file__).parent.parent / "data" / "cache.db"
+PORT = int(os.getenv("PORT", "5004"))
+# Use /tmp on Vercel (read-only fs), local data/ otherwise
+_default_db = Path("/tmp/tennis-cache.db") if os.getenv("VERCEL") else Path(__file__).parent.parent / "data" / "cache.db"
+DB_PATH = Path(os.getenv("DB_PATH", str(_default_db)))
