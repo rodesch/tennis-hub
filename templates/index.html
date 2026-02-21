@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tennis Hub</title>
+  <base id="app-base">
+  <script>
+    document.getElementById('app-base').href =
+      location.pathname.startsWith('/tennis') ? '/tennis/' : '/';
+  </script>
+  <link rel="stylesheet" href="static/css/style.css" />
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">🎾</span>
+        <span class="logo-text">Tennis Hub</span>
+      </div>
+      <nav>
+        <a href="#rankings" class="nav-link active" data-section="rankings">Rankings</a>
+        <a href="#results" class="nav-link" data-section="results">Results</a>
+        <a href="#calendar" class="nav-link" data-section="calendar">Calendar</a>
+        <a href="#h2h" class="nav-link" data-section="h2h">H2H</a>
+        <a href="#draws" class="nav-link" data-section="draws">Draws</a>
+        <a href="#player" class="nav-link" data-section="player">Player</a>
+        <a href="#search" class="nav-link" data-section="search">Search</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- Rankings -->
+    <section id="rankings" class="section active">
+      <div class="section-header">
+        <h1>Rankings</h1>
+        <div class="tab-group">
+          <button class="tab active" data-tour="atp">ATP</button>
+          <button class="tab" data-tour="wta">WTA</button>
+        </div>
+      </div>
+      <div id="rankings-content" class="content-area">
+        <div class="loading">Loading rankings...</div>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section id="results" class="section">
+      <div class="section-header">
+        <h1>Results</h1>
+        <input type="date" id="results-date" class="date-input" />
+      </div>
+      <div id="results-content" class="content-area">
+        <div class="placeholder">Select a date to load results.</div>
+      </div>
+    </section>
+
+    <!-- Calendar -->
+    <section id="calendar" class="section">
+      <div class="section-header">
+        <h1>Tournament Calendar</h1>
+      </div>
+      <div id="calendar-content" class="content-area">
+        <div class="loading">Loading calendar...</div>
+      </div>
+    </section>
+
+    <!-- H2H -->
+    <section id="h2h" class="section">
+      <div class="section-header">
+        <h1>Head to Head</h1>
+      </div>
+      <div class="search-form">
+        <input type="number" id="h2h-p1" placeholder="Player 1 ID" class="input-field" />
+        <input type="number" id="h2h-p2" placeholder="Player 2 ID" class="input-field" />
+        <button id="h2h-btn" class="btn-primary">Compare</button>
+      </div>
+      <div id="h2h-content" class="content-area">
+        <div class="placeholder">Enter two player IDs to see their head-to-head record.</div>
+      </div>
+    </section>
+
+    <!-- Draws -->
+    <section id="draws" class="section">
+      <div class="section-header">
+        <h1>Tournament Draw</h1>
+      </div>
+      <div class="search-form">
+        <input type="number" id="draws-tid" placeholder="Tournament ID" class="input-field" />
+        <button id="draws-btn" class="btn-primary">Load Draw</button>
+      </div>
+      <div id="draws-content" class="content-area">
+        <div class="placeholder">Enter a tournament ID to load the draw.</div>
+      </div>
+    </section>
+
+    <!-- Player -->
+    <section id="player" class="section">
+      <div class="section-header">
+        <h1>Player Profile</h1>
+      </div>
+      <div class="search-form">
+        <input type="number" id="player-id" placeholder="Player ID" class="input-field" />
+        <button id="player-btn" class="btn-primary">Load Player</button>
+      </div>
+      <div id="player-content" class="content-area">
+        <div class="placeholder">Enter a player ID to see their profile.</div>
+      </div>
+    </section>
+
+    <!-- Search -->
+    <section id="search" class="section">
+      <div class="section-header">
+        <h1>Search</h1>
+      </div>
+      <div class="search-form">
+        <input type="text" id="search-q" placeholder="Search players or tournaments..." class="input-field wide" />
+        <button id="search-btn" class="btn-primary">Search</button>
+      </div>
+      <div id="search-content" class="content-area">
+        <div class="placeholder">Start typing to search.</div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="static/js/app.js"></script>
+</body>
+</html>

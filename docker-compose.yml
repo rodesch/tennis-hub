@@ -1,0 +1,17 @@
+services:
+  tennis-site:
+    build: .
+    container_name: tennis-hub
+    restart: unless-stopped
+    ports:
+      - "5004:5004"
+    volumes:
+      - ./data:/app/data
+    env_file:
+      - .env
+    environment:
+      - TZ=America/Sao_Paulo
+
+networks:
+  default:
+    name: tennis-hub-network
