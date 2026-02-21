@@ -74,8 +74,8 @@ function renderRankings(resp) {
   const rowsHtml = rows.slice(0, 100).map(r => {
     const rank = r.ranking || r.rank || r.position || '—';
     const name = r.player?.name || r.name || r.playerName || '—';
-    const pts = r.points?.toLocaleString() || r.rankingPoints?.toLocaleString() || '—';
-    const country = r.player?.country?.alpha2 || r.country || '';
+    const pts = (r.point ?? r.points ?? r.rankingPoints)?.toLocaleString() || '—';
+    const country = r.player?.countryAcr || r.player?.country?.alpha2 || r.player?.country?.acronym || r.country || '';
     return `
       <tr>
         <td class="rank-num">${rank}</td>
@@ -119,12 +119,12 @@ async function loadResults() {
 
 function renderResults(resp) {
   const data = resp.data;
-  const matches = data?.events || data?.results || data?.matches || (Array.isArray(data) ? data : null);
+  const matches = data?.events || data?.results || data?.matches || data?.data || (Array.isArray(data) ? data : null);
   if (!matches || matches.length === 0) return '<div class="placeholder">No results found for this date.</div>';
 
   return matches.map(m => {
-    const tournament = m.tournament?.name || m.competition?.name || 'Unknown Tournament';
-    const round = m.roundInfo?.name || m.round || '';
+    const tournament = m.tournament?.name || m.competition?.name || (m.tournamentId ? 'Tournament #' + m.tournamentId : 'Unknown');
+    const round = m.roundInfo?.name || m.round?.name || m.round || '';
     const homeTeam = m.homeTeam?.name || m.player1?.name || '—';
     const awayTeam = m.awayTeam?.name || m.player2?.name || '—';
     const homeScore = m.homeScore?.current ?? m.score?.home ?? '';
@@ -162,14 +162,14 @@ async function loadCalendar() {
 
 function renderCalendar(resp) {
   const data = resp.data;
-  const items = data?.competitions || data?.tournaments || data?.events || (Array.isArray(data) ? data : null);
+  const items = data?.competitions || data?.tournaments || data?.events || data?.data || (Array.isArray(data) ? data : null);
   if (!items || items.length === 0) return '<div class="placeholder">No upcoming tournaments found.</div>';
 
   const cards = items.map(t => {
     const name = t.name || t.tournament?.name || 'Unknown';
     const cat = t.category?.name || t.circuit || '';
-    const surface = t.groundType || t.surface || '';
-    const start = t.startDate || t.startTimestamp ? new Date((t.startTimestamp || 0) * 1000).toLocaleDateString() : '';
+    const surface = t.groundType || t.surface || t.court?.name || '';
+    const start = t.startDate || (t.date ? new Date(t.date).toLocaleDateString() : '') || (t.startTimestamp ? new Date(t.startTimestamp * 1000).toLocaleDateString() : '');
     const end = t.endDate || (t.endTimestamp ? new Date(t.endTimestamp * 1000).toLocaleDateString() : '');
     const tagClass = cat.toLowerCase().includes('wta') ? 'tag-wta' : cat.toLowerCase().includes('itf') ? 'tag-itf' : 'tag-atp';
 
@@ -206,64 +206,47 @@ function renderH2H(resp) {
   const data = resp.data;
   if (!data) return jsonFallback(data);
 
-  const p1Name = data.player1?.name || data.homeTeam?.name || 'Player 1';
-  const p2Name = data.player2?.name || data.awayTeam?.name || 'Player 2';
-  const p1Country = data.player1?.country?.name || data.player1?.nationality || '';
-  const p2Country = data.player2?.country?.name || data.player2?.nationality || '';
-  const p1Wins = data.player1Wins ?? data.player1?.wins ?? data.homeWins ?? null;
-  const p2Wins = data.player2Wins ?? data.player2?.wins ?? data.awayWins ?? null;
-
-  const events = data.events || data.matches || data.results || (Array.isArray(data) ? data : null);
-  if (p1Wins === null && p2Wins === null && !events) return jsonFallback(data);
-
-  const summaryHtml = `
-    <div class="h2h-summary">
-      <div class="h2h-player">
-        <div class="name">${p1Name}</div>
-        ${p1Country ? `<div style="font-size:.8rem;color:var(--text-muted);margin-bottom:.4rem">${p1Country}</div>` : ''}
-        <div class="wins">${p1Wins ?? '—'}</div>
+  // New API returns court-based stats: [{court, player1wins, player2wins}]
+  const courtStats = data?.data || data?.h2h || (Array.isArray(data) ? data : null);
+  if (courtStats && Array.isArray(courtStats) && courtStats[0]?.court) {
+    let p1Total = 0, p2Total = 0;
+    courtStats.forEach(s => {
+      p1Total += parseInt(s.player1wins || 0);
+      p2Total += parseInt(s.player2wins || 0);
+    });
+    const surfaceRows = courtStats.map(s => `
+      <tr>
+        <td>${s.court}</td>
+        <td style="text-align:center;font-weight:700;color:var(--green)">${s.player1wins}</td>
+        <td style="text-align:center;font-weight:700;color:var(--accent)">${s.player2wins}</td>
+      </tr>`).join('');
+    return `
+      <div class="h2h-summary">
+        <div class="h2h-player"><div class="name">Player 1</div><div class="wins">${p1Total}</div></div>
+        <div class="h2h-vs">VS</div>
+        <div class="h2h-player"><div class="name">Player 2</div><div class="wins">${p2Total}</div></div>
       </div>
-      <div class="h2h-vs">VS</div>
-      <div class="h2h-player">
-        <div class="name">${p2Name}</div>
-        ${p2Country ? `<div style="font-size:.8rem;color:var(--text-muted);margin-bottom:.4rem">${p2Country}</div>` : ''}
-        <div class="wins">${p2Wins ?? '—'}</div>
-      </div>
-    </div>`;
-
-  let matchesHtml = '';
-  if (events && events.length > 0) {
-    matchesHtml = events.map(m => {
-      const tournament = m.tournament?.name || m.competition?.name || 'Unknown Tournament';
-      const round = m.roundInfo?.name || m.round || '';
-      const homeTeam = m.homeTeam?.name || m.player1?.name || '—';
-      const awayTeam = m.awayTeam?.name || m.player2?.name || '—';
-      const homeScore = m.homeScore?.current ?? m.score?.home ?? '';
-      const awayScore = m.awayScore?.current ?? m.score?.away ?? '';
-      const winnerCode = m.winnerCode ?? (homeScore > awayScore ? 1 : homeScore < awayScore ? 2 : 0);
-      const date = m.startTimestamp
-        ? new Date(m.startTimestamp * 1000).toLocaleDateString()
-        : m.date || '';
-      return `
-        <div class="match-card">
-          <div class="match-meta">${tournament}${round ? ' · ' + round : ''}${date ? ' · ' + date : ''}</div>
-          <div class="match-players">
-            <div class="match-player ${winnerCode === 1 ? 'winner' : ''}">
-              <span class="player-name">${homeTeam}</span>
-              <span class="score">${homeScore}</span>
-            </div>
-            <div class="match-player ${winnerCode === 2 ? 'winner' : ''}">
-              <span class="player-name">${awayTeam}</span>
-              <span class="score">${awayScore}</span>
-            </div>
-          </div>
-        </div>`;
-    }).join('');
-  } else {
-    matchesHtml = '<div class="placeholder">No match history available.</div>';
+      <table class="rankings-table" style="margin-top:1rem">
+        <thead><tr><th>Surface</th><th style="text-align:center">P1 Wins</th><th style="text-align:center">P2 Wins</th></tr></thead>
+        <tbody>${surfaceRows}</tbody>
+      </table>`;
   }
 
-  return summaryHtml + matchesHtml;
+  // Legacy shape fallback
+  const p1Name = data.player1?.name || data.homeTeam?.name || 'Player 1';
+  const p2Name = data.player2?.name || data.awayTeam?.name || 'Player 2';
+  const p1Wins = data.player1Wins ?? data.player1?.wins ?? data.homeWins ?? null;
+  const p2Wins = data.player2Wins ?? data.player2?.wins ?? data.awayWins ?? null;
+  const events = data.events || data.matches || data.results || null;
+  if (p1Wins === null && p2Wins === null && !events) return jsonFallback(data);
+
+  return `
+    <div class="h2h-summary">
+      <div class="h2h-player"><div class="name">${p1Name}</div><div class="wins">${p1Wins ?? '—'}</div></div>
+      <div class="h2h-vs">VS</div>
+      <div class="h2h-player"><div class="name">${p2Name}</div><div class="wins">${p2Wins ?? '—'}</div></div>
+    </div>
+    ${events?.length ? events.map(m => `<div class="match-card"><div class="match-meta">${m.tournament?.name || ''}</div></div>`).join('') : '<div class="placeholder">No match history.</div>'}`;
 }
 
 // ---- Draws ----
@@ -355,17 +338,17 @@ async function loadPlayer() {
 }
 
 function renderPlayer(resp) {
-  const d = resp.data?.player || resp.data;
+  const d = resp.data?.data || resp.data?.player || resp.data;
   if (!d) return jsonFallback(resp.data);
 
   const name = d.name || '—';
-  const country = d.country?.name || d.nationality || '—';
+  const country = d.country?.name || d.nationality || d.countryAcr || '—';
   const ranking = d.ranking || d.currentRanking || '—';
   const birthDate = d.dateOfBirthTimestamp
     ? new Date(d.dateOfBirthTimestamp * 1000).toLocaleDateString()
     : d.birthDate || '—';
-  const hand = d.plays || d.hand || '—';
-  const turned = d.turnedProYear || '—';
+  const hand = d.information?.plays || d.plays || d.hand || '—';
+  const turned = d.information?.turnedPro || d.turnedProYear || '—';
 
   return `
     <div class="player-profile">
@@ -402,12 +385,12 @@ async function doSearch() {
 
 function renderSearch(resp) {
   const data = resp.data;
-  const results = data?.results || data?.players || (Array.isArray(data) ? data : null);
-  if (!results || results.length === 0) return '<div class="placeholder">No results found.</div>';
+  const results = data?.results || data?.players || data?.data || (Array.isArray(data) ? data : null);
+  if (!results || results.length === 0) return '<div class="placeholder">No results. Search uses ranked players only (Basic plan).</div>';
 
   const items = results.map(r => {
     const name = r.name || r.player?.name || '—';
-    const country = r.country?.name || r.nationality || '';
+    const country = r.country?.name || r.nationality || r.countryAcr || r.player?.country?.name || '';
     const type = r.type || (r.sport ? 'Tournament' : 'Player');
     return `
       <div class="search-item">

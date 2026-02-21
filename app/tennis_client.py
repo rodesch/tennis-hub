@@ -90,15 +90,24 @@ class TennisClient:
         return await self._cached(key, CACHE_TTL["player"], f"{t}/player/profile/{player_id}")
 
     async def search_players(self, query: str, type: str = "atp") -> dict:
-        """Fetch all players for type and filter by name on the backend."""
+        """Search players by name within cached rankings (Basic plan compatible)."""
         t = type.lower()
-        key = cache.make_key("players_list", type=t)
-        data = await self._cached(key, CACHE_TTL["search"] * 24, f"{t}/player/")
-        # Filter by query string
-        players = data if isinstance(data, list) else data.get("data", [])
+        key = cache.make_key("rankings", type=t)
+        data = await self._cached(key, CACHE_TTL["rankings"], f"{t}/ranking/singles/")
+        ranking_rows = data.get("data", []) if isinstance(data, dict) else data
         q = query.lower().strip()
-        filtered = [p for p in players if q in (p.get("name") or "").lower()]
-        return {"query": query, "results": filtered}
+        results = []
+        for r in ranking_rows:
+            player = r.get("player", {})
+            if q in (player.get("name") or "").lower():
+                results.append({
+                    "id": player.get("id"),
+                    "name": player.get("name"),
+                    "countryAcr": player.get("countryAcr"),
+                    "ranking": r.get("position"),
+                    "points": r.get("point"),
+                })
+        return {"query": query, "results": results}
 
     async def close(self):
         if self._client and not self._client.is_closed:
